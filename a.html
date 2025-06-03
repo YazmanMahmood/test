@@ -1,13 +1,510 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Looped Video</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Video Stream Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.online {
+            background: #4CAF50;
+        }
+        
+        .status-indicator.offline {
+            background: #f44336;
+        }
+        
+        .status-indicator.loading {
+            background: #ff9800;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #f8f9fa;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .video-stream {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .loading-message, .error-message {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+        
+        .error-message {
+            color: #f44336;
+        }
+        
+        .info-panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .info-value {
+            font-family: 'Courier New', monospace;
+            color: #6c757d;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: transform 0.2s ease;
+            margin-top: 15px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .video-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <video width="720" height="405" controls autoplay loop>
-    <source src="v.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span id="status-indicator" class="status-indicator loading"></span>
+                Live Video Stream
+            </h1>
+            <p id="status-text">Connecting to Firebase...</p>
+            <div class="video-badge">🎬 MP4 Video Stream</div>
+        </div>
+        
+        <div class="content">
+            <div class="video-container" id="video-container">
+                <div class="loading-message" id="loading-message">
+                    <p>🔄 Loading video stream...</p>
+                    <p style="font-size: 0.9em; margin-top: 10px;">Fetching stream URL from Firebase</p>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="info-label">Stream URL:</span>
+                    <span class="info-value" id="stream-url">Loading...</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Video Source:</span>
+                    <span class="info-value" id="video-source">MP4 File Stream</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Connection Status:</span>
+                    <span class="info-value" id="connection-status">Connecting...</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Last Updated:</span>
+                    <span class="info-value" id="last-updated">--</span>
+                </div>
+                
+                <button class="btn" onclick="refreshStream()">🔄 Refresh Stream</button>
+                <button class="btn" onclick="testStreamEndpoints()" style="margin-left: 10px;">🔍 Test Endpoints</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+        import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFf37rXOtI8O0Pfz_TsKzn9KQ6JLYadok",
+            authDomain: "artemisuavwebsite.firebaseapp.com",
+            databaseURL: "https://artemisuavwebsite-default-rtdb.firebaseio.com",
+            projectId: "artemisuavwebsite",
+            storageBucket: "artemisuavwebsite.firebasestorage.app",
+            messagingSenderId: "1018877760562",
+            appId: "1:1018877760562:web:f7d82a009e512d1166582b",
+            measurementId: "G-1301DTCMNR"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Global variables
+        let currentStreamUrl = null;
+        let isConnected = false;
+
+        // DOM elements
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const videoContainer = document.getElementById('video-container');
+        const loadingMessage = document.getElementById('loading-message');
+        const streamUrlElement = document.getElementById('stream-url');
+        const connectionStatusElement = document.getElementById('connection-status');
+        const lastUpdatedElement = document.getElementById('last-updated');
+        const videoSourceElement = document.getElementById('video-source');
+
+        // Update status indicator
+        function updateStatus(status, message) {
+            statusIndicator.className = `status-indicator ${status}`;
+            statusText.textContent = message;
+            connectionStatusElement.textContent = message;
+        }
+
+        // Create video element
+        function createVideoElement(streamUrl) {
+            // Clean the URL - remove trailing slashes and ensure proper format
+            const cleanUrl = streamUrl.replace(/\/+$/, '');
+            const videoSrc = `${cleanUrl}/video_feed`;
+            
+            console.log('Attempting to load video stream from:', videoSrc);
+            
+            // Try using an iframe first (to handle ngrok warning page)
+            const iframe = document.createElement('iframe');
+            iframe.src = videoSrc;
+            iframe.className = 'video-stream';
+            iframe.style.border = 'none';
+            iframe.style.width = '100%';
+            iframe.style.height = '400px';
+            iframe.style.borderRadius = '15px';
+            
+            // Also try with img element as fallback
+            const img = document.createElement('img');
+            img.className = 'video-stream';
+            img.alt = 'Live Video Stream';
+            img.style.display = 'none'; // Hidden initially
+            
+            // Try to bypass ngrok warning with special parameters
+            const bypassUrl = `${videoSrc}?ngrok-skip-browser-warning=true`;
+            img.src = bypassUrl;
+            
+            console.log('Trying iframe approach first');
+            console.log('Also trying img with bypass URL:', bypassUrl);
+            
+            let loadAttempts = 0;
+            const maxAttempts = 3;
+            
+            // Function to try loading the image
+            function tryLoadImage() {
+                loadAttempts++;
+                console.log(`Video stream load attempt ${loadAttempts} of ${maxAttempts}`);
+                
+                const testImg = new Image();
+                testImg.crossOrigin = 'anonymous';
+                
+                testImg.onload = function() {
+                    console.log('Video stream loaded successfully via img');
+                    updateStatus('online', 'Video Stream Active');
+                    isConnected = true;
+                    
+                    // Replace iframe with working image
+                    img.style.display = 'block';
+                    img.src = bypassUrl;
+                    iframe.style.display = 'none';
+                };
+                
+                testImg.onerror = function() {
+                    console.log(`Video stream load attempt ${loadAttempts} failed`);
+                    if (loadAttempts < maxAttempts) {
+                        setTimeout(tryLoadImage, 2000);
+                    } else {
+                        console.log('All video stream load attempts failed, keeping iframe');
+                        updateStatus('loading', 'Video stream may be loading...');
+                    }
+                };
+                
+                testImg.src = bypassUrl;
+            }
+            
+            // Start trying to load the image after a short delay
+            setTimeout(tryLoadImage, 1000);
+            
+            // Create container for both elements
+            const container = document.createElement('div');
+            container.style.position = 'relative';
+            container.style.width = '100%';
+            container.appendChild(iframe);
+            container.appendChild(img);
+            
+            // Also create a direct link button
+            const linkButton = document.createElement('button');
+            linkButton.textContent = '🔗 Open Video Stream in New Tab';
+            linkButton.className = 'btn';
+            linkButton.style.marginTop = '10px';
+            linkButton.onclick = function() {
+                window.open(bypassUrl, '_blank');
+            };
+            container.appendChild(linkButton);
+            
+            return container;
+        }
+
+        // Show error message
+        function showError(message) {
+            videoContainer.innerHTML = `
+                <div class="error-message">
+                    <p>❌ ${message}</p>
+                    <p style="font-size: 0.9em; margin-top: 10px;">Please check if the video stream is running</p>
+                </div>
+            `;
+        }
+
+        // Load stream from Firebase
+        function loadStream() {
+            updateStatus('loading', 'Fetching video stream URL...');
+            
+            // Listen to ngrok URL
+            const ngrokRef = ref(database, '/ngrok_url_simple');
+            
+            onValue(ngrokRef, (snapshot) => {
+                const data = snapshot.val();
+                console.log('Firebase data received:', data);
+                
+                if (data) {
+                    let streamUrl = null;
+                    let timestamp = null;
+                    
+                    // Handle different data formats
+                    if (typeof data === 'string') {
+                        streamUrl = data;
+                        console.log('Video stream URL (string format):', streamUrl);
+                    } else if (typeof data === 'object' && data.url) {
+                        streamUrl = data.url;
+                        timestamp = data.timestamp;
+                        console.log('Video stream URL (object format):', streamUrl);
+                    } else if (typeof data === 'object') {
+                        // Check for other possible property names
+                        streamUrl = data.ngrok_url || data.url || data.stream_url;
+                        timestamp = data.timestamp || data.updated_at;
+                        console.log('Video stream URL (alternative object format):', streamUrl);
+                    }
+                    
+                    if (streamUrl) {
+                        currentStreamUrl = streamUrl;
+                        streamUrlElement.textContent = streamUrl;
+                        videoSourceElement.textContent = 'MP4 File Stream (Looping)';
+                        
+                        if (timestamp) {
+                            lastUpdatedElement.textContent = new Date(timestamp).toLocaleString();
+                        } else {
+                            lastUpdatedElement.textContent = new Date().toLocaleString();
+                        }
+                        
+                        // Clear loading message and create video element
+                        videoContainer.innerHTML = '';
+                        const videoElement = createVideoElement(streamUrl);
+                        videoContainer.appendChild(videoElement);
+                        
+                        updateStatus('loading', 'Connecting to video stream...');
+                    } else {
+                        console.error('No valid stream URL found in data:', data);
+                        showError('Invalid video stream URL format');
+                        updateStatus('offline', 'Invalid Data Format');
+                    }
+                } else {
+                    console.error('No data found at /ngrok_url_simple');
+                    showError('No video stream URL found in Firebase');
+                    updateStatus('offline', 'No Stream Data');
+                    streamUrlElement.textContent = 'Not available';
+                }
+            }, (error) => {
+                console.error('Firebase error:', error);
+                showError('Firebase connection failed');
+                updateStatus('offline', 'Firebase Error');
+                streamUrlElement.textContent = 'Connection failed';
+            });
+        }
+
+        // Refresh stream function
+        window.refreshStream = function() {
+            console.log('Refreshing video stream...');
+            updateStatus('loading', 'Refreshing...');
+            videoContainer.innerHTML = `
+                <div class="loading-message">
+                    <p>🔄 Refreshing video stream...</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                if (currentStreamUrl) {
+                    const videoElement = createVideoElement(currentStreamUrl);
+                    videoContainer.innerHTML = '';
+                    videoContainer.appendChild(videoElement);
+                } else {
+                    loadStream();
+                }
+            }, 1000);
+        };
+
+        // Add function to test different stream endpoints
+        window.testStreamEndpoints = function() {
+            if (!currentStreamUrl) {
+                alert('No video stream URL available');
+                return;
+            }
+
+            const endpoints = [
+                '/video_feed',
+                '/stream',
+                '/video',
+                '/cam',
+                '/webcam',
+                '/'
+            ];
+
+            console.log('Testing different video stream endpoints:');
+            endpoints.forEach(endpoint => {
+                const testUrl = `${currentStreamUrl.replace(/\/+$/, '')}${endpoint}`;
+                console.log(`Testing: ${testUrl}`);
+                
+                const testImg = new Image();
+                testImg.onload = () => console.log(`✅ Working: ${testUrl}`);
+                testImg.onerror = () => console.log(`❌ Failed: ${testUrl}`);
+                testImg.src = testUrl + '?ngrok-skip-browser-warning=true';
+            });
+        };
+
+        // Initialize the application
+        function init() {
+            console.log('Initializing Firebase Video Stream Viewer...');
+            console.log('Looking for video stream URL at: /ngrok_url_simple');
+            loadStream();
+        }
+
+        // Start the application
+        init();
+
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+            if (!isConnected) {
+                console.log('Auto-refreshing video stream...');
+                loadStream();
+            }
+        }, 60000);
+    </script>
 </body>
 </html>
